@@ -5,6 +5,8 @@
 <html>
 
 <head>
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+    <meta content="utf-8" http-equiv="encoding">
     <script src="http://d3js.org/d3.v3.min.js"></script>
     <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
     <script src="https://gitcdn.xyz/repo/MasterMaps/d3-slider/master/d3.slider.js"></script>
@@ -16,7 +18,9 @@
     <div id="splash">
         <img src="{{site.baseurl}}/images/bg.png" id="bg" alt="">
         <img src="{{site.baseurl}}/images/Arsenal.png" id="logo" alt="">
-    <div>
+    </div>
+    <div id="theSvg" class="svg-container"></div>
+    <div id="stats-div" class="svg-container"></div>
     <script>
     function createForce() {
         var self = this;
@@ -184,9 +188,10 @@
             h = $('body').height();
 
         var svg = d3.select(document.createElementNS("http://www.w3.org/2000/svg", "svg"))
-            .attr('id', 'svg')
-            .attr("width", w)
-            .attr("height", h);
+            .attr('class',"svg-content-responsive")
+            .attr('id', 'forcesvg')
+            .style("width", w)
+            .style("height", h);
         var vis = svg
             .append('svg:g');
 
@@ -298,7 +303,17 @@
                     focused = !focused;
                     focusedNode = d;
                     update();
+                    d3.select('#theSvg')
+                        .style('height', focused ? '75%' : '100%');
+                    var h = $('#theSvg').height();
+                    d3.select('#forcesvg')
+                        .style('height', h+'px');
+                    d3.select('#stats-div')
+                        .style('height', focused ? '25%' : '0%');
+                    draw_linechart();
                 })
+
+
                 .on('mouseenter', function(d) {
                     if (!d.focus) {
                         return;
@@ -494,10 +509,97 @@
         return self.version('5.14')
             .linkMinimum(0.3);
     }
+    //------------------------
+    //----LINE GRAPH
+    //------------------------
+    var charts = $('#stats-div').append($('<svg>')
+        .attr('id', 'stats-chart'));
 
+    var draw_linechart = function(){
+        var lineData = [{
+              x: 1,
+              y: 5
+            }, {
+              x: 20,
+              y: 20
+            }, {
+              x: 40,
+              y: 10
+            }, {
+              x: 60,
+              y: 40
+            }, {
+              x: 80,
+              y: 5
+            }, {
+              x: 100,
+              y: 60
+            }];
 
-    var theSvg = $('body').append($('<svg>')
-        .attr('id', 'theSvg'));
+        var w = $('#stats-div').width(),
+            h = $('#stats-div').height()/4;
+
+        var linechart = d3.select('#stats-chart'),
+        MARGINS = {
+            top: 20,
+            right: 20,
+            bottom: 20,
+            left: 50
+        },
+        xRange = d3.scale.linear().range([MARGINS.left, w - MARGINS.right]).domain([d3.min(lineData, function(d) {
+          return d.x;
+        }), d3.max(lineData, function(d) {
+          return d.x;
+        })]),
+        yRange = d3.scale.linear().range([h - MARGINS.top, MARGINS.bottom]).domain([d3.min(lineData, function(d) {
+          return d.y;
+        }), d3.max(lineData, function(d) {
+          return d.y;
+        })]),
+        xAxis = d3.svg.axis()
+          .scale(xRange)
+          .tickSize(5)
+          .tickSubdivide(true),
+        yAxis = d3.svg.axis()
+          .scale(yRange)
+          .tickSize(5)
+          .orient('left')
+          .tickSubdivide(true);
+
+        d3.select('#stats-chart')
+            .attr('class',"svg-content-responsive")
+            .style("width", '100%')
+            .style("height", '100%');
+
+        linechart.append('svg:g')
+            .attr('class', 'x axis')
+            .attr('transform', 'translate(0,' + (h - MARGINS.bottom) + ')')
+            .call(xAxis);
+
+        linechart.append('svg:g')
+            .attr('class', 'y axis')
+            .attr('transform', 'translate(' + (MARGINS.left) + ',0)')
+            .call(yAxis);
+
+        var lineFunc = d3.svg.line()
+            .x(function(d) {
+            return xRange(d.x);
+            })
+            .y(function(d) {
+            return yRange(d.y);
+            })
+            .interpolate('linear');
+        linechart.append('svg:path')
+            .attr('d', lineFunc(lineData))
+            .attr('stroke', 'blue')
+            .attr('stroke-width', 2)
+            .attr('fill', 'none');
+    }
+    draw_linechart();
+
+    //------------------------
+    //----SETUP
+    //------------------------
     d3.select('#theSvg')
         .style("opacity", 0);
 
@@ -532,8 +634,8 @@
     $(function() {
         $(window).resize(function() {
             $('#theSvg,#svg')
-                .attr('width', $('body').width())
-                .attr('height', $('body').height());
+                .attr('width', $('#theSvg').width())
+                .attr('height', $('#theSvg').height());
             graph.update();
         });
     });
@@ -596,7 +698,7 @@
         transitionIn();
     });
     var logo = d3.select("#logo")
-        .style("position", "fixed")
+        .style("position", "absolute")
         .style("bottom", "50%")
         .style("right", "50%")
         .style("transform", "translate(50%, 50%)");
@@ -616,6 +718,7 @@
         .trigger("resize");
 
     var transitionIn = function() {
+
         // Transition the splash screen out
         d3.select("#bg").transition()
             .duration(1000)
@@ -630,13 +733,18 @@
             //.style('transform', "translate(0%, 0%)")
             .style("right", '170px')
             .style("bottom", '120px')
-            .style("width", '300px')
+            .style("width", '300px');
 
         // Transition the graph in
         d3.select('#theSvg').transition()
             .delay(1000)
             .duration(1000)
             .style("opacity", 1)
+            .each("end", function() {
+                document.getElementById('theSvg').appendChild(
+                   document.getElementById('logo')
+                 );
+            });
     };
     setTimeout(transitionIn, 2000);
 
